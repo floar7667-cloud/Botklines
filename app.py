@@ -1,7 +1,6 @@
 """
-app.py — Dos bots de velas 1m (Binance USDⓈ-M Futures) que siguen la tendencia,
+app.py — Dos bots de velas 1m (Binance USDⓈ-M Futures) que sigue la tendencia,
 en paralelo y con operaciones e historial separados, sobre la misma web.
-
 Estrategia (común)
   • Velas 1m de TODOS los perpetuos USDT por WebSocket (kline_ws.py, sin REST).
   • Cuerpo de la vela = (cierre o último precio - apertura) / apertura.
@@ -68,7 +67,6 @@ desactivado por ahora: en Render free el disco se borra en cada reinicio).
 """
 
 from __future__ import annotations
-
 import asyncio
 import atexit
 import concurrent.futures
