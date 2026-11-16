@@ -8,7 +8,7 @@ os.environ.setdefault("BOTKLINE_AUTOSTART", "false")
 
 import app as st  # noqa: E402
 
-from test_strategy import _bot_sin_red, _libro  # noqa: E402
+from test_strategy import _bot_sin_red  # noqa: E402
 
 
 def test_lado_que_cobra_el_funding():
@@ -55,7 +55,6 @@ def test_abre_en_el_lado_que_cobra_y_cierra_tras_el_cobro(tmp_path, monkeypatch)
     enviados = []
     bot.executor.send = lambda payload, *a, **k: enviados.append((time.time(), payload))
     bot._price = lambda sym: {"AUSDT": 1.0, "BUSDT": 2.0}.get(sym)
-    pedidos = _libro(bot, [["0.99", "1000"]], [["1.01", "1000"]])
     bot.funding_cfg.update(open_before_s=0.6, close_after_s=0.15)   # más que FUNDING_MIN_LEAD_S (0.4 s)
     monkeypatch.setattr(st, "FUNDING_TRACK", False)
     eng = bot.engines[st.ENGINE_FUNDING]
@@ -83,11 +82,10 @@ def test_abre_en_el_lado_que_cobra_y_cierra_tras_el_cobro(tmp_path, monkeypatch)
     assert all(p["strategy"] == "funding" and "tp" not in p for _, p in opens)
     assert all(t < ts for t, _ in opens) and all(t >= ts for t, _ in closes) and len(closes) == 2
     assert all(p["reason"] == "FUNDING" for _, p in closes)
-    assert "AUSDT" in pedidos
     assert not eng.positions
     a = next(t for t in eng.closed_trades if t["symbol"] == "AUSDT")
-    # La entrada en papel se corrigió con el libro (SHORT vende a los bids) y el PnL suma el funding.
-    assert a["entry_price"] == pytest.approx(0.99) and a["entry_src"] == "libro"
+    # La entrada en papel es el precio en vivo (sin libro) y el PnL suma el funding.
+    assert a["entry_price"] == pytest.approx(1.0) and a["entry_src"] == "precio en vivo"
     assert a["funding_usd"] == pytest.approx(a["notional"] * 0.45 / 100)
     assert a["pnl"] == pytest.approx(a["pnl_gross"] - a["fees"] + a["funding_usd"])
 
@@ -196,7 +194,6 @@ def test_seguimiento_entra_si_cruza_y_no_abre_si_baja(tmp_path, monkeypatch):
         bot.filters[s] = {"stepSize": 1, "minQty": 0, "minNotional": 5}
     bot.executor.send = lambda *a, **k: None
     bot._price = lambda sym: 1.0
-    bot._refine_entry = lambda *a, **k: None
     bot.funding_cfg.update(open_before_s=0.6, close_after_s=0.1)
     monkeypatch.setattr(st, "FUNDING_TRACK_END_S", 0.05)
     monkeypatch.setattr(st, "FUNDING_TRACK_RATIO", 0.5)              # también los cercanos
@@ -340,7 +337,6 @@ def test_solo_opera_contratos_en_trading(tmp_path, monkeypatch):
     for s in ("AUSDT", "BUSDT"):
         bot.filters[s] = {"stepSize": 1, "minQty": 0, "minNotional": 5}
     bot._price = lambda sym: 1.0
-    bot._refine_entry = lambda *a, **k: None
     bot.funding_cfg.update(open_before_s=0.6, close_after_s=0.1)
     monkeypatch.setattr(st, "FUNDING_TRACK", False)
     bot._filters_ok_ts = time.time()                     # exchangeInfo recién pedido: lo que falta no es operable
